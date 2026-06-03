@@ -19,27 +19,15 @@ Lancer depuis la RACINE du projet :
 import sys
 sys.dont_write_bytecode = True
 
-import argparse
-import importlib.util
 import subprocess
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import registry
+import helpers
 from shared.io_utils import ensure_dir, log
 
-
-# ---------------------------------------------------------------------------
-# Chargement d'un module Python depuis un chemin fichier
-# ---------------------------------------------------------------------------
-
-def load_module(path: Path):
-    """Charge un module Python depuis un chemin absolu."""
-    spec   = importlib.util.spec_from_file_location(path.stem, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 # ---------------------------------------------------------------------------
 # Rendu d'un seul asset (tourne dans un thread)
@@ -112,13 +100,13 @@ def run_pipeline(
     ensure_dir(out_dir)
     ensure_dir(tmp_dir)
 
-    # Etape 1 : generation JSON
+    # Step 1 : JSON generation
     log(f"Step 1/2 -- Generating {count} {asset_type}(s)  [seed={seed or 'random'}]")
-    generator  = load_module(generator_script)
+    generator  = helpers.load_module(generator_script)
     json_files = generator.run(count=count, seed=seed, out_dir=str(tmp_dir))
     log(f"{len(json_files)} JSON(s) written to {tmp_dir}", "OK")
 
-    # Etape 2 : rendu Blender en parallele
+    # Step 2 : parallel Blender renderer
     effective_workers = min(workers, len(json_files))
     log(f"Step 2/2 -- Rendering with Blender  [workers={effective_workers}, bin='{blender_bin}']")
 
@@ -141,7 +129,7 @@ def run_pipeline(
             if msg.strip():
                 print(msg)
 
-    # Nettoyage tmp
+    # Cleaning tmp
     if not keep_tmp:
         for f in json_files:
             f.unlink(missing_ok=True)
@@ -153,34 +141,9 @@ def run_pipeline(
     log(f"Outputs -> {out_dir}")
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-def _parse_args():
-    p = argparse.ArgumentParser(description="Asset pipeline")
-    p.add_argument("--type",     type=str, default=None,
-                   help=f"Type d'asset. Disponibles : {registry.list_types()}")
-    p.add_argument("--types",    action="store_true")
-    p.add_argument("--count",    type=int, default=3)
-    p.add_argument("--seed",     type=int, default=None)
-    p.add_argument("--workers",  type=int, default=2)
-    p.add_argument("--blender",  type=str, default="blender")
-    p.add_argument("--keep-tmp", action="store_true")
-    return p.parse_args()
-
 
 if __name__ == "__main__":
-    args = _parse_args()
-    if args.types:
-        print("Available asset types:")
-        for t in registry.list_types():
-            print(f"  - {t}")
-        sys.exit()
-        
-    elif not (args.type and args.type in registry.list_types()):
-        print("requires --type <TYPE>. To see all the types available, add --types")
-        sys.exit()
+    args = helpers._parse_args()
     
     run_pipeline(
         asset_type  = args.type,
