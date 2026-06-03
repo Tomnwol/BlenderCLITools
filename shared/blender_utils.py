@@ -102,15 +102,47 @@ def export_glb(obj, filepath: str):
 # Matériau
 # ---------------------------------------------------------------------------
 
-def apply_white_material(obj, name: str = "CloudMat"):
-    """Applique un matériau blanc mat (utile pour la preview PNG)."""
-    mat = bpy.data.materials.new(name=name)
+# Valeurs par défaut si aucun matériau n'est fourni dans le JSON
+_MAT_DEFAULTS = {
+    "base_color": [0.9, 0.95, 1.0],
+    "roughness":  0.9,
+    "metallic":   0.0,
+    "specular":   0.05,
+    "alpha":      1.0,
+}
+
+
+def apply_material(obj, mat_data: dict | None = None, name: str = "AssetMat"):
+    """
+    Applique un matériau Principled BSDF sur obj depuis un dict.
+
+    mat_data accepte ces clés (toutes optionnelles) :
+        base_color : [r, g, b]  (0.0 - 1.0)
+        roughness  : float
+        metallic   : float
+        specular   : float
+        alpha      : float      (1.0 = opaque)
+        name       : str        (nom du matériau Blender)
+
+    Si mat_data est None ou vide, les valeurs par défaut sont utilisées.
+    """
+    m = {**_MAT_DEFAULTS, **(mat_data or {})}
+
+    mat = bpy.data.materials.new(name=m.get("name", name))
     mat.use_nodes = True
+
     bsdf = mat.node_tree.nodes.get("Principled BSDF")
     if bsdf:
-        bsdf.inputs["Base Color"].default_value = (0.9, 0.95, 1.0, 1.0)
-        bsdf.inputs["Roughness"].default_value = 0.9
-        bsdf.inputs["Specular IOR Level"].default_value = 0.05
+        r, g, b = m["base_color"]
+        bsdf.inputs["Base Color"].default_value = (r, g, b, m["alpha"])
+        bsdf.inputs["Roughness"].default_value  = m["roughness"]
+        bsdf.inputs["Metallic"].default_value   = m["metallic"]
+        # Compatibilité Blender 4.x et 5.x
+        specular_input = (bsdf.inputs.get("Specular IOR Level")
+                          or bsdf.inputs.get("Specular"))
+        if specular_input:
+            specular_input.default_value = m["specular"]
+
     if obj.data.materials:
         obj.data.materials[0] = mat
     else:

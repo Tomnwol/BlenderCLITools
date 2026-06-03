@@ -34,7 +34,7 @@ POS_X_RANGE   = (-3.0,  3.0)
 POS_Y_RANGE   = (-1.5,  1.5)
 POS_Z_RANGE   = (-0.3,  0.8)
 
-DEFAULT_TMP_DIR = "tmp/cloud"
+DEFAULT_TMP_DIR = "tmp/clouds"
 
 
 # ---------------------------------------------------------------------------
@@ -69,15 +69,27 @@ class CloudGenerator(BaseGenerator):
             **self._base_fields(asset_id, seed),
             "sphere_count": n,
             "spheres":      spheres,
+            "material": {
+                "name":       f"{asset_id}_mat",
+                "base_color": [0.2, 0.93, 0.2],   # blanc bleuté
+                "roughness":  round(rng.uniform(0.7, 1.0), 3),
+                "metallic":   0.0,
+                "specular":   0.03,
+                "alpha":      1.0,
+            },
         }
 
     def validate(self, data: dict) -> bool:
-        required = {"asset_id", "asset_type", "seed", "sphere_count", "spheres"}
+        required = {"asset_id", "asset_type", "seed", "sphere_count", "spheres", "material"}
         if not required.issubset(data.keys()):
             log(f"Missing keys: {required - data.keys()}", "WARN")
             return False
         if not isinstance(data["spheres"], list) or len(data["spheres"]) == 0:
             log("'spheres' must be a non-empty list", "WARN")
+            return False
+        mat = data["material"]
+        if not isinstance(mat.get("base_color"), list) or len(mat["base_color"]) != 3:
+            log("material.base_color must be a list of 3 floats", "WARN")
             return False
         return True
 
@@ -96,7 +108,6 @@ def run(count: int, seed: int | None, out_dir: str, prefix: str | None = None) -
 # CLI
 # ---------------------------------------------------------------------------
 
-"""
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Cloud JSON generator")
     p.add_argument("--count",  type=int, default=5)
@@ -107,5 +118,3 @@ if __name__ == "__main__":
 
     files = run(args.count, args.seed, args.out, args.prefix)
     log(f"{len(files)} cloud(s) saved to {args.out}", "OK")
-
-"""

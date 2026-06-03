@@ -3,13 +3,6 @@ shared/base_renderer.py
 ------------------------
 Classe de base abstraite pour tous les renderers Blender.
 
-Chaque renderer (cloud_renderer.py, rock_renderer.py, ...) herite de cette
-classe et n'a qu'une seule methode a implementer : build(data) qui construit
-le mesh dans Blender et retourne l'objet bpy final.
-
-Le reste (clear scene, material, GLB export, preview PNG) est gere ici
-une seule fois pour tous les renderers.
-
 CE FICHIER est importe UNIQUEMENT depuis un contexte Blender (--background).
 """
 
@@ -21,7 +14,7 @@ from pathlib import Path
 import bpy
 
 from shared.io_utils      import load_json, ensure_dir, log
-from shared.blender_utils import clear_scene, apply_white_material, export_glb
+from shared.blender_utils import clear_scene, apply_material, export_glb
 from shared.preview_utils import setup_iso_camera, setup_three_point_lighting, render_preview
 
 
@@ -42,13 +35,13 @@ class BaseRenderer(ABC):
     def build(self, data: dict) -> bpy.types.Object:
         """
         Construit le mesh Blender a partir du dict JSON.
-        Doit retourner l'objet bpy final (apres join/remesh/decimate etc.)
-        L'objet sera nomme, texture, exporte et rendu automatiquement.
+        Retourne l'objet bpy final.
+        Le materiau, l'export GLB et la preview PNG sont geres automatiquement.
         """
         ...
 
     # -----------------------------------------------------------------------
-    # Pipeline complete (ne pas surcharger sauf besoin specifique)
+    # Pipeline complete
     # -----------------------------------------------------------------------
 
     def process(self, json_path: str, out_dir: str):
@@ -56,12 +49,12 @@ class BaseRenderer(ABC):
         Pipeline complete pour un fichier JSON :
             1. Charge le JSON
             2. Clear la scene
-            3. Appelle build() -> objet Blender
-            4. Applique le materiau
+            3. build() -> objet Blender
+            4. Applique le materiau depuis data["material"] (ou defaults)
             5. Exporte en GLB
             6. Rend la preview PNG
         """
-        out        = Path(out_dir)
+        out      = Path(out_dir)
         ensure_dir(out)
 
         data     = load_json(json_path)
@@ -72,16 +65,15 @@ class BaseRenderer(ABC):
 
         clear_scene()
 
-        obj = self.build(data)
+        obj      = self.build(data)
         obj.name = asset_id
-        apply_white_material(obj)
+
+        # Matériau : lu depuis le JSON, fallback sur les defaults
+        mat_data = data.get("material", None)
+        apply_material(obj, mat_data, name=f"{asset_id}_mat")
 
         log(f"Exporting GLB -> {glb_path}")
         export_glb(obj, glb_path)
-
-        #blend_path = str(out / f"{asset_id}.blend")
-        #log(f"Saving BLEND -> {blend_path}")
-        #bpy.ops.wm.save_as_mainfile(filepath=blend_path)
 
         log(f"Rendering preview -> {png_path}.png")
         setup_three_point_lighting()
@@ -96,7 +88,7 @@ class BaseRenderer(ABC):
         log(f"Done: {asset_id}", "OK")
 
     # -----------------------------------------------------------------------
-    # Parsing args Blender (tout ce qui suit "--" dans la commande)
+    # Parsing args Blender
     # -----------------------------------------------------------------------
 
     @classmethod
@@ -113,7 +105,6 @@ class BaseRenderer(ABC):
 
     @classmethod
     def main(cls):
-        """Point d'entree : instancie le renderer et lance process()."""
         renderer = cls()
         args     = cls.parse_args()
         renderer.process(args.json, args.out)
