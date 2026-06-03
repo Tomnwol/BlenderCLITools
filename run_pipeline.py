@@ -108,7 +108,7 @@ def run_pipeline(
 
     # Step 2 : parallel Blender renderer
     effective_workers = min(workers, len(json_files))
-    log(f"Step 2/2 -- Rendering with Blender  [workers={effective_workers}, bin='{blender_bin}']")
+    log(f"Step 2/2 -- Rendering with Blender  [workers={effective_workers}]")
 
     success, failed = 0, 0
     futures = {}

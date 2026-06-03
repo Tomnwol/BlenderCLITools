@@ -1,6 +1,7 @@
 import importlib.util
 import argparse
 import registry
+import sys
 from pathlib import Path
 
 # Load Python module from a file path
