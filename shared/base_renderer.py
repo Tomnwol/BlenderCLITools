@@ -79,6 +79,10 @@ class BaseRenderer(ABC):
         log(f"Exporting GLB -> {glb_path}")
         export_glb(obj, glb_path)
 
+        #blend_path = str(out / f"{asset_id}.blend")
+        #log(f"Saving BLEND -> {blend_path}")
+        #bpy.ops.wm.save_as_mainfile(filepath=blend_path)
+
         log(f"Rendering preview -> {png_path}.png")
         setup_three_point_lighting()
         setup_iso_camera(target=obj, distance=self.camera_distance, sensor_size=self.camera_sensor)

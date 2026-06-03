@@ -4,6 +4,7 @@ renderers/rocks/rock_renderer.py
 Renderer de rochers low-poly type Deep Rock Galactic.
 """
 
+import mathutils
 import sys
 import random
 from pathlib import Path
@@ -49,29 +50,29 @@ def create_rock(
             use_grid_fill=True
         )
 
+
+    center = mathutils.Vector((0,0,0))
+
+    for v in bm.verts:
+        center += v.co
+
+    center /= len(bm.verts)
+
     for vert in bm.verts:
 
-        vert.co.x += rng.uniform(
+        direction = (vert.co - center).normalized()
+
+        offset = rng.uniform(
             -roughness,
             roughness
         )
 
-        vert.co.y += rng.uniform(
-            -roughness,
-            roughness
-        )
+        vert.co += direction * offset
 
-        vert.co.z += rng.uniform(
-            -roughness,
-            roughness
-        )
-
-        # accent vertical DRG
         vert.co.z *= rng.uniform(
-            0.8,
-            1.5
+            0.9,
+            1.3
         )
-
     bm.to_mesh(mesh)
     bm.free()
 

@@ -1,32 +1,38 @@
 {
-  "rock_02": {
-    "asset_type": "rock",
-    "seed": 1217283321,
-    "glb": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_02.glb",
-    "png": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_02.png"
-  },
   "rock_01": {
     "asset_type": "rock",
-    "seed": 1322019967,
+    "seed": 577090037,
     "glb": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_01.glb",
     "png": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_01.png"
   },
-  "rock_03": {
+  "rock_02": {
     "asset_type": "rock",
-    "seed": 662012656,
-    "glb": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_03.glb",
-    "png": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_03.png"
+    "seed": 271041745,
+    "glb": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_02.glb",
+    "png": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_02.png"
   },
   "rock_04": {
     "asset_type": "rock",
-    "seed": 1140820779,
+    "seed": 506456969,
     "glb": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_04.glb",
     "png": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_04.png"
   },
+  "rock_03": {
+    "asset_type": "rock",
+    "seed": 1095513148,
+    "glb": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_03.glb",
+    "png": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_03.png"
+  },
   "rock_05": {
     "asset_type": "rock",
-    "seed": 986343911,
+    "seed": 2127877499,
     "glb": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_05.glb",
     "png": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_05.png"
+  },
+  "rock_06": {
+    "asset_type": "rock",
+    "seed": 1930549411,
+    "glb": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_06.glb",
+    "png": "C:\\Users\\Tom\\tmp\\BlenderCLITools\\renderers\\rock\\output\\rock_06.png"
   }
 }

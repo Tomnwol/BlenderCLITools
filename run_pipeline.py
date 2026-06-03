@@ -76,6 +76,7 @@ def render_one(json_path: Path, out_dir: Path, renderer_script: Path, blender_bi
 
     glb = out_dir / f"{asset_id}.glb"
     png = out_dir / f"{asset_id}.png"
+
     if not glb.exists() or not png.exists():
         return asset_id, False, f"Output files missing (glb={glb.exists()}, png={png.exists()})\n{output_summary}"
 
