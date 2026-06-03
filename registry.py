@@ -25,7 +25,7 @@ _ROOT = Path(__file__).resolve().parent
 
 ASSETS = [
     "cloud",
-    # "rock",
+    "rock",
     # "tree",
 ]
 

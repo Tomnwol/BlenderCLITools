@@ -4,6 +4,7 @@ run_pipeline.py
 Point d'entree unique. Orchestre :
     1. Generation des JSON  (via generator_script dans registry.py)
     2. Rendu Blender en parallele (via renderer_script dans registry.py)
+    3. Cache : skip les assets deja rendus avec le meme seed
 
 Lancer depuis la RACINE du projet :
 
@@ -12,6 +13,8 @@ Lancer depuis la RACINE du projet :
     python run_pipeline.py --type cloud --count 20 --workers 4
     python run_pipeline.py --types
     python run_pipeline.py --keep-tmp
+    python run_pipeline.py --force          # ignore le cache, re-render tout
+    python run_pipeline.py --cache-info     # affiche le contenu du cache
     python run_pipeline.py --blender "C:/path/to/blender.exe"
 """
 
@@ -20,13 +23,13 @@ import sys
 sys.dont_write_bytecode = True
 
 import subprocess
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import registry
 import helpers
 from shared.io_utils import ensure_dir, log
+from shared import cache
 
 
 # ---------------------------------------------------------------------------
@@ -90,8 +93,9 @@ def run_pipeline(
     blender_bin: str,
     keep_tmp: bool,
     workers: int,
+    force: bool,
 ):
-    config          = registry.get(asset_type)
+    config           = registry.get(asset_type)
     generator_script = Path(config["generator_script"])
     renderer_script  = Path(config["renderer_script"])
     tmp_dir          = Path(config["tmp_dir"])
@@ -100,56 +104,91 @@ def run_pipeline(
     ensure_dir(out_dir)
     ensure_dir(tmp_dir)
 
-    # Step 1 : JSON generation
+    # ── Step 1 : generation JSON ───────────────────────────────────────────
     log(f"Step 1/2 -- Generating {count} {asset_type}(s)  [seed={seed or 'random'}]")
     generator  = helpers.load_module(generator_script)
     json_files = generator.run(count=count, seed=seed, out_dir=str(tmp_dir))
     log(f"{len(json_files)} JSON(s) written to {tmp_dir}", "OK")
 
-    # Step 2 : parallel Blender renderer
-    effective_workers = min(workers, len(json_files))
-    log(f"Step 2/2 -- Rendering with Blender  [workers={effective_workers}]")
+    # ── Step 2 : rendu Blender avec cache ─────────────────────────────────
+    # Lire les seeds des JSON générés pour vérifier le cache
+    from shared.io_utils import load_json
+
+    to_render  = []
+    skipped    = 0
+
+    for json_path in json_files:
+        data     = load_json(json_path)
+        asset_id = data["asset_id"]
+        jseed    = data["seed"]
+
+        if not force and cache.is_cached(out_dir, asset_id, jseed):
+            log(f"[{asset_id}] skipped (cached)", "INFO")
+            skipped += 1
+        else:
+            to_render.append(json_path)
+
+    effective_workers = min(workers, len(to_render)) if to_render else 1
+    log(f"Step 2/2 -- Rendering {len(to_render)} asset(s)  "
+        f"[skipped={skipped}, workers={effective_workers}]")
 
     success, failed = 0, 0
-    futures = {}
 
-    with ThreadPoolExecutor(max_workers=effective_workers) as executor:
-        for json_path in json_files:
-            future = executor.submit(render_one, json_path, out_dir, renderer_script, blender_bin)
-            futures[future] = json_path.stem
+    if to_render:
+        futures = {}
+        with ThreadPoolExecutor(max_workers=effective_workers) as executor:
+            for json_path in to_render:
+                future = executor.submit(render_one, json_path, out_dir, renderer_script, blender_bin)
+                futures[future] = json_path
 
-        for future in as_completed(futures):
-            asset_id, ok, msg = future.result()
-            if ok:
-                success += 1
-                log(f"[{asset_id}] done", "OK")
-            else:
-                failed += 1
-                log(f"[{asset_id}] FAILED", "ERROR")
-            if msg.strip():
-                print(msg)
+            for future in as_completed(futures):
+                json_path        = futures[future]
+                asset_id, ok, msg = future.result()
 
-    # Cleaning tmp
+                if ok:
+                    success += 1
+                    log(f"[{asset_id}] done", "OK")
+                    # Enregistrer dans le cache
+                    data = load_json(json_path)
+                    cache.register(out_dir, asset_id, data["seed"], asset_type)
+                else:
+                    failed += 1
+                    log(f"[{asset_id}] FAILED", "ERROR")
+
+                if msg.strip():
+                    print(msg)
+
+    # ── Nettoyage tmp ──────────────────────────────────────────────────────
     if not keep_tmp:
         for f in json_files:
             f.unlink(missing_ok=True)
         log(f"Cleaned up {tmp_dir}")
 
+    # ── Résumé ─────────────────────────────────────────────────────────────
     print()
-    log(f"Pipeline complete -- {success} rendered, {failed} failed",
+    log(f"Pipeline complete -- {success} rendered, {skipped} skipped, {failed} failed",
         "OK" if failed == 0 else "WARN")
     log(f"Outputs -> {out_dir}")
 
 
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     args = helpers._parse_args()
-    
-    run_pipeline(
-        asset_type  = args.type,
-        count       = args.count,
-        seed        = args.seed,
-        blender_bin = args.blender,
-        keep_tmp    = args.keep_tmp,
-        workers     = args.workers,
-    )
+
+    if hasattr(args, "cache_info") and args.cache_info:
+        config  = registry.get(args.type)
+        out_dir = Path(config["out_dir"])
+        print(cache.summary(out_dir))
+    else:
+        run_pipeline(
+            asset_type  = args.type,
+            count       = args.count,
+            seed        = args.seed,
+            blender_bin = args.blender,
+            keep_tmp    = args.keep_tmp,
+            workers     = args.workers,
+            force       = args.force,
+        )

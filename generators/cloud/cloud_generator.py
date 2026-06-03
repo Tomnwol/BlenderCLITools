@@ -34,7 +34,7 @@ POS_X_RANGE   = (-3.0,  3.0)
 POS_Y_RANGE   = (-1.5,  1.5)
 POS_Z_RANGE   = (-0.3,  0.8)
 
-DEFAULT_TMP_DIR = "tmp/clouds"
+DEFAULT_TMP_DIR = "tmp/cloud"
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +96,7 @@ def run(count: int, seed: int | None, out_dir: str, prefix: str | None = None) -
 # CLI
 # ---------------------------------------------------------------------------
 
+"""
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Cloud JSON generator")
     p.add_argument("--count",  type=int, default=5)
@@ -106,3 +107,5 @@ if __name__ == "__main__":
 
     files = run(args.count, args.seed, args.out, args.prefix)
     log(f"{len(files)} cloud(s) saved to {args.out}", "OK")
+
+"""
