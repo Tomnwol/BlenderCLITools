@@ -1,27 +1,26 @@
 """
 generators/clouds/cloud_generator.py
 -------------------------------------
-Génère des nuages low-poly sous forme de fichiers JSON dans /tmp/clouds/.
-Appelé par run_pipeline.py ou directement en CLI.
+Generateur de nuages low-poly. Herite de BaseGenerator.
 
 Usage direct:
-    python generators/clouds/cloud_generator.py
-    python generators/clouds/cloud_generator.py --count 10 --seed 42
-    python generators/clouds/cloud_generator.py --count 5 --out /tmp/my_clouds
+    python generators/clouds/cloud_generator.py --count 5 --seed 42
+    python generators/clouds/cloud_generator.py --count 5 --out C:/tmp/clouds
 """
 
 import sys
-import math
 import random
 import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from shared.io_utils import save_json, ensure_dir, log
+
+from shared.base_generator import BaseGenerator
+from shared.io_utils import log
 
 
 # ---------------------------------------------------------------------------
-# Paramètres de génération  (tweak ici)
+# Parametres de generation  (tweak ici)
 # ---------------------------------------------------------------------------
 
 SPHERE_COUNT_MIN = 4
@@ -33,96 +32,77 @@ SCALE_Z_RANGE = (0.3, 1.2)
 
 POS_X_RANGE   = (-3.0,  3.0)
 POS_Y_RANGE   = (-1.5,  1.5)
-POS_Z_RANGE   = (-0.3,  0.8)  # nuage légèrement aplati sur Z
+POS_Z_RANGE   = (-0.3,  0.8)
 
-DEFAULT_TMP_DIR = "/tmp/clouds"
+DEFAULT_TMP_DIR = "tmp/clouds"
 
 
 # ---------------------------------------------------------------------------
-# Génération
+# Implementation
 # ---------------------------------------------------------------------------
 
-def generate_cloud(cloud_id: str, seed: int) -> dict:
-    """Génère un nuage reproductible à partir d'un seed."""
-    rng = random.Random(seed)
-    n   = rng.randint(SPHERE_COUNT_MIN, SPHERE_COUNT_MAX)
+class CloudGenerator(BaseGenerator):
 
-    spheres = [
-        {
-            "position": {
-                "x": round(rng.uniform(*POS_X_RANGE), 4),
-                "y": round(rng.uniform(*POS_Y_RANGE), 4),
-                "z": round(rng.uniform(*POS_Z_RANGE), 4),
-            },
-            "scale": {
-                "x": round(rng.uniform(*SCALE_X_RANGE), 4),
-                "y": round(rng.uniform(*SCALE_Y_RANGE), 4),
-                "z": round(rng.uniform(*SCALE_Z_RANGE), 4),
-            },
+    asset_type = "cloud"
+
+    def generate_one(self, asset_id: str, seed: int) -> dict:
+        rng = random.Random(seed)
+        n   = rng.randint(SPHERE_COUNT_MIN, SPHERE_COUNT_MAX)
+
+        spheres = [
+            {
+                "position": {
+                    "x": round(rng.uniform(*POS_X_RANGE), 4),
+                    "y": round(rng.uniform(*POS_Y_RANGE), 4),
+                    "z": round(rng.uniform(*POS_Z_RANGE), 4),
+                },
+                "scale": {
+                    "x": round(rng.uniform(*SCALE_X_RANGE), 4),
+                    "y": round(rng.uniform(*SCALE_Y_RANGE), 4),
+                    "z": round(rng.uniform(*SCALE_Z_RANGE), 4),
+                },
+            }
+            for _ in range(n)
+        ]
+
+        return {
+            **self._base_fields(asset_id, seed),
+            "sphere_count": n,
+            "spheres":      spheres,
         }
-        for _ in range(n)
-    ]
 
-    return {
-        "cloud_id":     cloud_id,
-        "seed":         seed,
-        "sphere_count": n,
-        "spheres":      spheres,
-    }
-
-
-def generate_batch(count: int, global_seed: int | None = None, prefix: str = "cloud") -> list[dict]:
-    """Génère `count` nuages avec des seeds dérivés d'un seed global."""
-    master_seed = global_seed if global_seed is not None else random.randint(0, 2**31)
-    master_rng  = random.Random(master_seed)
-    pad = max(2, math.ceil(math.log10(count + 1)))
-
-    clouds = []
-    for i in range(count):
-        cloud_id   = f"{prefix}_{str(i + 1).zfill(pad)}"
-        cloud_seed = master_rng.randint(0, 2**31)
-        clouds.append(generate_cloud(cloud_id, cloud_seed))
-
-    return clouds
+    def validate(self, data: dict) -> bool:
+        required = {"asset_id", "asset_type", "seed", "sphere_count", "spheres"}
+        if not required.issubset(data.keys()):
+            log(f"Missing keys: {required - data.keys()}", "WARN")
+            return False
+        if not isinstance(data["spheres"], list) or len(data["spheres"]) == 0:
+            log("'spheres' must be a non-empty list", "WARN")
+            return False
+        return True
 
 
 # ---------------------------------------------------------------------------
-# Entrée principale (appelée par run_pipeline.py)
+# Fonction run() — interface attendue par run_pipeline.py
 # ---------------------------------------------------------------------------
 
-def run(count: int, seed: int | None, out_dir: str, prefix: str = "cloud") -> list[Path]:
-    """
-    Génère `count` nuages et sauvegarde les JSON dans out_dir.
-    Retourne la liste des fichiers créés.
-    """
-    out = Path(out_dir)
-    ensure_dir(out)
+_generator = CloudGenerator()
 
-    clouds = generate_batch(count, seed, prefix)
-    paths  = []
-
-    for cloud in clouds:
-        path = save_json(cloud, out / f"{cloud['cloud_id']}.json")
-        log(f"Generated {cloud['cloud_id']} ({cloud['sphere_count']} spheres) → {path}", "OK")
-        paths.append(path)
-
-    return paths
+def run(count: int, seed: int | None, out_dir: str, prefix: str | None = None) -> list[Path]:
+    return _generator.run(count=count, seed=seed, out_dir=out_dir, prefix=prefix)
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
-def _parse_args():
+if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Cloud JSON generator")
     p.add_argument("--count",  type=int, default=5)
     p.add_argument("--seed",   type=int, default=None)
     p.add_argument("--out",    type=str, default=DEFAULT_TMP_DIR)
-    p.add_argument("--prefix", type=str, default="cloud")
-    return p.parse_args()
+    p.add_argument("--prefix", type=str, default=None)
+    args = p.parse_args()
 
-
-if __name__ == "__main__":
-    args = _parse_args()
     files = run(args.count, args.seed, args.out, args.prefix)
-    log(f"{len(files)} cloud(s) saved to {args.out}", "INFO")
+    log(f"{len(files)} cloud(s) saved to {args.out}", "OK")
