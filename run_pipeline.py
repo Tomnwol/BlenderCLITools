@@ -15,9 +15,14 @@ Lancer depuis la RACINE du projet :
     python run_pipeline.py --blender "C:/path/to/blender.exe"
 """
 
+# Disable __pycache__
+import sys
+sys.dont_write_bytecode = True
+
 import argparse
 import importlib.util
 import subprocess
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -35,7 +40,6 @@ def load_module(path: Path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
 
 # ---------------------------------------------------------------------------
 # Rendu d'un seul asset (tourne dans un thread)
@@ -155,7 +159,7 @@ def run_pipeline(
 
 def _parse_args():
     p = argparse.ArgumentParser(description="Asset pipeline")
-    p.add_argument("--type",     type=str, default="cloud",
+    p.add_argument("--type",     type=str, default=None,
                    help=f"Type d'asset. Disponibles : {registry.list_types()}")
     p.add_argument("--types",    action="store_true")
     p.add_argument("--count",    type=int, default=3)
@@ -168,17 +172,21 @@ def _parse_args():
 
 if __name__ == "__main__":
     args = _parse_args()
-
     if args.types:
         print("Available asset types:")
         for t in registry.list_types():
             print(f"  - {t}")
-    else:
-        run_pipeline(
-            asset_type  = args.type,
-            count       = args.count,
-            seed        = args.seed,
-            blender_bin = args.blender,
-            keep_tmp    = args.keep_tmp,
-            workers     = args.workers,
-        )
+        sys.exit()
+        
+    elif not (args.type and args.type in registry.list_types()):
+        print("requires --type <TYPE>. To see all the types available, add --types")
+        sys.exit()
+    
+    run_pipeline(
+        asset_type  = args.type,
+        count       = args.count,
+        seed        = args.seed,
+        blender_bin = args.blender,
+        keep_tmp    = args.keep_tmp,
+        workers     = args.workers,
+    )
